@@ -11,10 +11,13 @@ dependencies = [
     "pydantic-settings>=2.12.0",
 ]
 
+[tool.uv]
+package = false
+
 [dependency-groups]
 dev = [
-    "mypy>=1.15.0",
-    "ruff>=0.12.0",
+    "mypy>=1.19.1",
+    "ruff>=0.14.10",
 ]
 
 [tool.ruff]
@@ -22,14 +25,30 @@ line-length = 100
 target-version = "py314"
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "N", "UP", "B", "C4"]
+extend-select = ["I"]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "N",
+    "UP",
+    "B",
+    "C4",
+]
+
+ignore = []
 
 [tool.ruff.lint.per-file-ignores]
 "src/handlers/*.py" = ["N802"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
 [tool.mypy]
+python_version = "3.14"
 strict = true
 
 [[tool.mypy.overrides]]
-module = ["grpc.*", "placebrain_contracts.*"]
+module = "grpc.*"
 ignore_missing_imports = true
