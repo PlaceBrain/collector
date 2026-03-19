@@ -24,9 +24,14 @@ class BufferConfig(BaseSettings):
     flush_interval: int = 60
 
 
+class AppConfig(BaseSettings):
+    port: int = 50054
+
+
 class Settings(BaseSettings):
     model_config = {"env_nested_delimiter": "__", "env_file": ".env"}
 
+    app: AppConfig = AppConfig()
     logging: LoggingConfig = LoggingConfig()
     mqtt: MqttConfig = MqttConfig()
     database: DatabaseConfig = DatabaseConfig()
