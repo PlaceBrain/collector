@@ -1,0 +1,35 @@
+[project]
+name = "placebrain-collector"
+version = "0.1.0"
+description = "PlaceBrain telemetry collector service"
+requires-python = ">=3.14"
+dependencies = [
+    "aiomqtt>=2.3.0",
+    "asyncpg>=0.31.0",
+    "grpcio>=1.76.0",
+    "placebrain-contracts>=0.6.0",
+    "pydantic-settings>=2.12.0",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15.0",
+    "ruff>=0.12.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "C4"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/handlers/*.py" = ["N802"]
+
+[tool.mypy]
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["grpc.*", "placebrain_contracts.*"]
+ignore_missing_imports = true
