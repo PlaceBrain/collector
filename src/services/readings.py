@@ -16,6 +16,12 @@ class ReadingsService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self.pool = pool
 
+    async def delete_readings(self, device_ids: list[str]) -> None:
+        uuids = [UUID(did) for did in device_ids]
+        async with self.pool.acquire() as conn:
+            await conn.execute("DELETE FROM alerts WHERE device_id = ANY($1::uuid[])", uuids)
+            await conn.execute("DELETE FROM readings WHERE device_id = ANY($1::uuid[])", uuids)
+
     async def get_latest(self, device_id: str) -> list[SensorReading]:
         query = """
             SELECT DISTINCT ON (key) key, value, time

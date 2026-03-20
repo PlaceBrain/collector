@@ -3,7 +3,10 @@ import logging
 from dishka import FromDishka
 from dishka.integrations.grpcio import inject
 from google.protobuf.timestamp_pb2 import Timestamp
-from placebrain_contracts.collector_pb2 import GetLatestReadingsResponse
+from placebrain_contracts.collector_pb2 import (
+    DeleteReadingsResponse,
+    GetLatestReadingsResponse,
+)
 from placebrain_contracts.collector_pb2 import SensorReading as SensorReadingProto
 from placebrain_contracts.collector_pb2_grpc import CollectorServiceServicer
 
@@ -24,3 +27,9 @@ class CollectorHandler(CollectorServiceServicer):
             ts.FromDatetime(r.time)
             proto_readings.append(SensorReadingProto(key=r.key, value=r.value, time=ts))
         return GetLatestReadingsResponse(readings=proto_readings)
+
+    @inject
+    async def DeleteReadings(self, request, context, readings_service: FromDishka[ReadingsService]):
+        logger.info("DeleteReadings called for %d devices", len(request.device_ids))
+        await readings_service.delete_readings(list(request.device_ids))
+        return DeleteReadingsResponse(success=True)

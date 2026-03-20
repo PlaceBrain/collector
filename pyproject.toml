@@ -8,7 +8,7 @@ dependencies = [
     "asyncpg>=0.31.0",
     "grpcio>=1.76.0",
     "dishka>=1.7.2",
-    "placebrain-contracts>=0.7.0",
+    "placebrain-contracts>=0.8.0",
     "pydantic-settings>=2.12.0",
 ]
 
