@@ -1,12 +1,14 @@
 import asyncio
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from datetime import datetime
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
 type TelemetryRecord = tuple[datetime, UUID, str, float]
+type FlushCallback = Callable[[list[TelemetryRecord]], Awaitable[None]]
 
 
 class TelemetryBuffer:
@@ -16,9 +18,9 @@ class TelemetryBuffer:
         self._flush_interval = flush_interval
         self._last_flush = time.monotonic()
         self._lock = asyncio.Lock()
-        self._flush_callback: object = None
+        self._flush_callback: FlushCallback | None = None
 
-    def set_flush_callback(self, callback: object) -> None:
+    def set_flush_callback(self, callback: FlushCallback) -> None:
         self._flush_callback = callback
 
     async def add(self, ts: datetime, device_id: UUID, key: str, value: float) -> None:
@@ -46,6 +48,6 @@ class TelemetryBuffer:
                 records = await self.drain()
                 if records and self._flush_callback is not None:
                     try:
-                        await self._flush_callback(records)  # type: ignore[misc]
+                        await self._flush_callback(records)
                     except Exception:
                         logger.exception("Failed to flush %d records", len(records))
