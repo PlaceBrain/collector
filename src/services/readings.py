@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID
 
 import asyncpg
@@ -83,7 +83,7 @@ class ReadingsService:
         interval_seconds: int,
     ) -> dict[str, list[AggregatedReading]]:
         has_keys = len(keys) > 0
-        interval = f"{interval_seconds} seconds"
+        interval = timedelta(seconds=interval_seconds)
         query = f"""
             SELECT
                 time_bucket_gapfill($1::interval, time) AS bucket,
