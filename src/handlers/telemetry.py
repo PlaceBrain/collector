@@ -61,7 +61,7 @@ class TelemetryHandler:
         for key, raw_value in values.items():
             try:
                 value = float(raw_value)
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 logger.warning("Non-numeric value for key %s: %s", key, raw_value)
                 continue
 

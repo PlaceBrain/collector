@@ -34,6 +34,15 @@ CREATE TABLE IF NOT EXISTS alerts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_alerts_status ON alerts (status) WHERE status = 'active';
+
+ALTER TABLE readings SET (
+    timescaledb.compress,
+    timescaledb.compress_segmentby = 'device_id, key',
+    timescaledb.compress_orderby = 'time DESC'
+);
+
+SELECT add_compression_policy('readings', INTERVAL '7 days', if_not_exists => TRUE);
+SELECT add_retention_policy('readings', INTERVAL '90 days', if_not_exists => TRUE);
 """
 
 
