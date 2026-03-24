@@ -1,5 +1,6 @@
 import logging
 
+import grpc
 from dishka import FromDishka
 from dishka.integrations.grpcio import inject
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -29,7 +30,16 @@ class CollectorHandler(CollectorServiceServicer):
         return GetLatestReadingsResponse(readings=proto_readings)
 
     @inject
-    async def DeleteReadings(self, request, context, readings_service: FromDishka[ReadingsService]):
+    async def DeleteReadings(
+        self,
+        request,
+        context: grpc.aio.ServicerContext,
+        readings_service: FromDishka[ReadingsService],
+    ):
         logger.info("DeleteReadings called for %d devices", len(request.device_ids))
-        await readings_service.delete_readings(list(request.device_ids))
-        return DeleteReadingsResponse(success=True)
+        try:
+            await readings_service.delete_readings(list(request.device_ids))
+            return DeleteReadingsResponse(success=True)
+        except ValueError as e:
+            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(e))
+            raise
