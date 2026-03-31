@@ -196,15 +196,15 @@ dev = [
 
 [[package]]
 name = "placebrain-contracts"
-version = "0.9.0"
+version = "0.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "grpcio" },
     { name = "protobuf" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/dd/aa/b45660b20bfa046395d6f4c2f725f53a4db9f31d1d804412d5d2f44c3b10/placebrain_contracts-0.9.0.tar.gz", hash = "sha256:b16914fa885ca9ee1a8a62dc8d2e791c1608ee4e7ba3efa7f0c7eab18aec7085", size = 32404, upload-time = "2026-03-24T13:54:05.983Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/af/ca/dc0865e7e0474b24f6c01971dc2fa6a264ebe001dd5c04baaa0fa449b82e/placebrain_contracts-0.12.0.tar.gz", hash = "sha256:b8707cd239385cc873cf2ee69002f93046922a230124d0603130905999290869", size = 33654, upload-time = "2026-03-27T15:27:45.699Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/22/c7/cf46dabd0bf3a8b0e01190ea46103b363a17ebcb2177d1180f6bf8a82bfc/placebrain_contracts-0.9.0-py3-none-any.whl", hash = "sha256:fd122a8b2f13fb5bdf63d34cfea9d7181f86c6f7cb4c6643713bad5a66272168", size = 30917, upload-time = "2026-03-24T13:54:06.676Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/79/9e52c367e0c2e09cea492b187da6e221f0edce5461f60df4660684d19730/placebrain_contracts-0.12.0-py3-none-any.whl", hash = "sha256:e98694f6873fe9ef99d08f2a4340915ef8a7b243b94fd3ae0fd05a372ea350d1", size = 31812, upload-time = "2026-03-27T15:27:44.817Z" },
 ]
 
 [[package]]
