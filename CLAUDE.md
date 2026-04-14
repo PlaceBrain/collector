@@ -1,11 +1,11 @@
 # Collector Service
 
-- **Порт:** 50054
-- **БД:** telemetry_db (TimescaleDB)
-- Гибридная архитектура: MQTT-подписчик + gRPC-сервер в одном asyncio event loop
-- **Не использует SQLAlchemy/UoW/Repository** — raw asyncpg pool
+- **Port:** 50054
+- **DB:** telemetry_db (TimescaleDB)
+- Hybrid architecture: MQTT subscriber + gRPC server in a single asyncio event loop
+- **Does not use SQLAlchemy/UoW/Repository** — raw asyncpg pool
 
-## Структура
+## Structure
 
 ```
 src/
@@ -20,48 +20,48 @@ src/
 │   └── services.py                  # Buffer, Writer, ThresholdCache, AlertService, ReadingsService
 ├── handlers/
 │   ├── readings.py                  # gRPC CollectorHandler (GetLatestReadings, GetReadings, DeleteReadings)
-│   ├── telemetry.py                 # MQTT TelemetryHandler (буфер + пороги)
-│   └── status.py                    # MQTT StatusHandler (обновление статуса устройств)
+│   ├── telemetry.py                 # MQTT TelemetryHandler (buffer + thresholds)
+│   └── status.py                    # MQTT StatusHandler (device status updates)
 ├── services/
 │   ├── buffer.py                    # TelemetryBuffer (in-memory, async-safe)
 │   ├── writer.py                    # TelemetryWriter (asyncpg COPY)
 │   ├── readings.py                  # ReadingsService (raw + aggregated queries)
-│   ├── threshold_cache.py           # ThresholdCache (обновление каждые 5 мин из devices)
+│   ├── threshold_cache.py           # ThresholdCache (refreshes every 5 min from devices)
 │   └── alerts.py                    # AlertService (evaluate + MQTT publish + DB write)
 └── infra/
     └── db.py                        # Schema creation (readings hypertable, alerts table)
 ```
 
-## Protobuf-импорты
+## Protobuf Imports
 
 ```python
 from placebrain_contracts import collector_pb2 as collector_pb
 from placebrain_contracts import devices_pb2 as devices_pb
 ```
 
-## Таблицы
+## Tables
 
-- `readings` (hypertable: time, device_id, key, value) — TimescaleDB с compression и retention
+- `readings` (hypertable: time, device_id, key, value) — TimescaleDB with compression and retention
 - `alerts` (sensor_id, threshold_id, device_id, place_id, key, value, threshold_value, threshold_type, severity)
 
-## Буферизация
+## Buffering
 
-- In-memory буфер, до 1000 записей или 60 сек
-- Flush через `asyncpg COPY`
+- In-memory buffer, up to 1000 records or 60 sec
+- Flush via `asyncpg COPY`
 
-## Threshold cache
+## Threshold Cache
 
-- Обновляется каждые 5 мин из devices-сервиса через gRPC `GetAllThresholds`
-- При нарушении порога → запись в alerts + публикация в MQTT `placebrain/{place_id}/alerts`
+- Refreshes every 5 min from devices service via gRPC `GetAllThresholds`
+- On threshold violation → write to alerts + publish to MQTT `placebrain/{place_id}/alerts`
 
 ## gRPC
 
 - `GetLatestReadings(device_id)` — `SELECT DISTINCT ON (key) ... ORDER BY time DESC`
-- `GetReadings(device_id, from, to, interval_seconds, keys)` — raw (interval=0, max 2h) или aggregated (time_bucket_gapfill)
-- `DeleteReadings(device_ids)` — каскадное удаление alerts + readings
+- `GetReadings(device_id, from, to, interval_seconds, keys)` — raw (interval=0, max 2h) or aggregated (time_bucket_gapfill)
+- `DeleteReadings(device_ids)` — cascading deletion of alerts + readings
 
 ## MQTT
 
-- Username `collector`, пароль `collector` (захардкожен в devices-сервисе как доверенный)
-- Подписка: `placebrain/+/devices/+/telemetry`, `placebrain/+/devices/+/status`
-- Зависит от: postgres, MQTT-брокер, devices-сервис (gRPC)
+- Username `collector`, password `collector` (hardcoded in devices service as trusted)
+- Subscription: `placebrain/+/devices/+/telemetry`, `placebrain/+/devices/+/status`
+- Depends on: postgres, MQTT broker, devices service (gRPC)
