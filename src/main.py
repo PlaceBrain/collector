@@ -76,9 +76,8 @@ async def serve() -> None:
 
         async for message in client.messages:
             topic = str(message.topic)
-            payload = message.payload
-            if isinstance(payload, bytes):
-                payload = payload.decode()
+            raw_payload = message.payload
+            payload = raw_payload.decode() if isinstance(raw_payload, bytes) else str(raw_payload)
 
             if topic.endswith("/telemetry"):
                 await telemetry_handler.handle(topic, payload)

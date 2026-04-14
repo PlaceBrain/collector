@@ -3,12 +3,12 @@ import logging
 
 import grpc
 from placebrain_contracts import devices_pb2 as devices_pb
+from placebrain_contracts.devices_pb2 import DEVICE_STATUS_OFFLINE, DEVICE_STATUS_ONLINE
 from placebrain_contracts.devices_pb2_grpc import DevicesServiceStub
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_STATUS = 2  # offline
-_STATUS_MAP = {"online": 1, "offline": _DEFAULT_STATUS}
+_STATUS_MAP = {"online": DEVICE_STATUS_ONLINE, "offline": DEVICE_STATUS_OFFLINE}
 
 
 class StatusHandler:
@@ -31,7 +31,7 @@ class StatusHandler:
             return
 
         status_str = data.get("status", "offline")
-        proto_status = _STATUS_MAP.get(status_str, _DEFAULT_STATUS)
+        proto_status = _STATUS_MAP.get(status_str, DEVICE_STATUS_OFFLINE)
 
         try:
             await self._stub.UpdateDeviceStatus(

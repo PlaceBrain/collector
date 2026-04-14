@@ -15,12 +15,12 @@ logger = logging.getLogger(__name__)
 
 class CollectorHandler(CollectorServiceServicer):
     @inject
-    async def GetLatestReadings(
+    async def GetLatestReadings(  # type: ignore[override]
         self,
-        request,
+        request: collector_pb.GetLatestReadingsRequest,
         context: grpc.aio.ServicerContext,
         readings_service: FromDishka[ReadingsService],
-    ):
+    ) -> collector_pb.GetLatestReadingsResponse:
         try:
             readings = await readings_service.get_latest(request.device_id)
         except ValueError as e:
@@ -34,12 +34,12 @@ class CollectorHandler(CollectorServiceServicer):
         return collector_pb.GetLatestReadingsResponse(readings=proto_readings)
 
     @inject
-    async def DeleteReadings(
+    async def DeleteReadings(  # type: ignore[override]
         self,
-        request,
+        request: collector_pb.DeleteReadingsRequest,
         context: grpc.aio.ServicerContext,
         readings_service: FromDishka[ReadingsService],
-    ):
+    ) -> collector_pb.DeleteReadingsResponse:
         logger.info("DeleteReadings called for %d devices", len(request.device_ids))
         try:
             await readings_service.delete_readings(list(request.device_ids))
@@ -49,12 +49,12 @@ class CollectorHandler(CollectorServiceServicer):
             raise
 
     @inject
-    async def GetReadings(
+    async def GetReadings(  # type: ignore[override]
         self,
-        request,
+        request: collector_pb.GetReadingsRequest,
         context: grpc.aio.ServicerContext,
         readings_service: FromDishka[ReadingsService],
-    ):
+    ) -> collector_pb.GetReadingsResponse:
         try:
             time_from = getattr(request, "from").ToDatetime(tzinfo=UTC)
             time_to = request.to.ToDatetime(tzinfo=UTC)
@@ -82,32 +82,32 @@ class CollectorHandler(CollectorServiceServicer):
         series: list[collector_pb.KeyReadings] = []
 
         if interval == 0:
-            data = await readings_service.get_readings_raw(
+            raw_data = await readings_service.get_readings_raw(
                 request.device_id, keys, time_from, time_to
             )
-            for key, readings in data.items():
+            for key, raw_readings in raw_data.items():
                 raw_points = []
-                for r in readings:
+                for r in raw_readings:
                     ts = Timestamp()
                     ts.FromDatetime(r.time)
                     raw_points.append(collector_pb.SensorReading(key=r.key, value=r.value, time=ts))
                 series.append(collector_pb.KeyReadings(key=key, raw_points=raw_points))
         else:
-            data = await readings_service.get_readings_aggregated(
+            agg_data = await readings_service.get_readings_aggregated(
                 request.device_id, keys, time_from, time_to, interval
             )
-            for key, readings in data.items():
+            for key, agg_readings in agg_data.items():
                 points = []
-                for r in readings:
+                for ar in agg_readings:
                     ts = Timestamp()
-                    ts.FromDatetime(r.time)
+                    ts.FromDatetime(ar.time)
                     point = collector_pb.AggregatedReading(time=ts)
-                    if r.avg is not None:
-                        point.avg = r.avg
-                    if r.min is not None:
-                        point.min = r.min
-                    if r.max is not None:
-                        point.max = r.max
+                    if ar.avg is not None:
+                        point.avg = ar.avg
+                    if ar.min is not None:
+                        point.min = ar.min
+                    if ar.max is not None:
+                        point.max = ar.max
                     points.append(point)
                 series.append(collector_pb.KeyReadings(key=key, points=points))
 
