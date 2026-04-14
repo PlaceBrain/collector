@@ -2,12 +2,13 @@ import json
 import logging
 
 import grpc
-from placebrain_contracts.devices_pb2 import UpdateDeviceStatusRequest
+from placebrain_contracts import devices_pb2 as devices_pb
 from placebrain_contracts.devices_pb2_grpc import DevicesServiceStub
 
 logger = logging.getLogger(__name__)
 
-_STATUS_MAP = {"online": 1, "offline": 2}
+_DEFAULT_STATUS = 2  # offline
+_STATUS_MAP = {"online": 1, "offline": _DEFAULT_STATUS}
 
 
 class StatusHandler:
@@ -30,11 +31,11 @@ class StatusHandler:
             return
 
         status_str = data.get("status", "offline")
-        proto_status = _STATUS_MAP.get(status_str, 2)
+        proto_status = _STATUS_MAP.get(status_str, _DEFAULT_STATUS)
 
         try:
             await self._stub.UpdateDeviceStatus(
-                UpdateDeviceStatusRequest(device_id=device_id, status=proto_status)
+                devices_pb.UpdateDeviceStatusRequest(device_id=device_id, status=proto_status)
             )
             logger.info("Updated device %s status to %s", device_id, status_str)
         except grpc.aio.AioRpcError:

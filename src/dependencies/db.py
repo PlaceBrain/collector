@@ -16,7 +16,7 @@ class DBProvider(Provider):
         pool = await create_pool(str(settings.database.url), settings.database.pool_size)
         try:
             await apply_schema(pool)
-        except Exception:
+        except asyncpg.PostgresError:
             logger.exception("Failed to apply schema")
         yield pool
         await pool.close()

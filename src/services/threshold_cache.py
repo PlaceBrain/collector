@@ -3,7 +3,7 @@ import logging
 from dataclasses import dataclass
 
 import grpc
-from placebrain_contracts.devices_pb2 import GetAllThresholdsRequest
+from placebrain_contracts import devices_pb2 as devices_pb
 from placebrain_contracts.devices_pb2_grpc import DevicesServiceStub
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ class ThresholdCache:
 
     async def refresh(self) -> None:
         try:
-            response = await self._stub.GetAllThresholds(GetAllThresholdsRequest())
+            response = await self._stub.GetAllThresholds(devices_pb.GetAllThresholdsRequest())
             new_map: dict[tuple[str, str], SensorMapping] = {}
             for sensor in response.sensors:
                 thresholds = [

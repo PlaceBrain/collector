@@ -87,6 +87,7 @@ async def serve() -> None:
     finally:
         flush_task.cancel()
         cache_task.cancel()
+        await asyncio.gather(flush_task, cache_task, return_exceptions=True)
         await server.stop(grace=3)
         await container.close()
 

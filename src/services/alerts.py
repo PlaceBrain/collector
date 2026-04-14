@@ -27,12 +27,9 @@ class AlertService:
         place_id: str,
     ) -> None:
         for threshold in mapping.thresholds:
-            violated = False
-            if threshold.threshold_type == "max" and value > threshold.value:
-                violated = True
-            elif threshold.threshold_type == "min" and value < threshold.value:
-                violated = True
-
+            violated = (threshold.threshold_type == "max" and value > threshold.value) or (
+                threshold.threshold_type == "min" and value < threshold.value
+            )
             if violated:
                 await self._create_alert(mapping, threshold, value, timestamp, place_id)
 
@@ -68,7 +65,7 @@ class AlertService:
                     threshold.value,
                     threshold.severity,
                 )
-            except Exception:
+            except aiomqtt.MqttError:
                 logger.exception("Failed to publish alert to MQTT")
 
         try:
@@ -90,5 +87,5 @@ class AlertService:
                     threshold.threshold_type,
                     threshold.severity,
                 )
-        except Exception:
+        except asyncpg.PostgresError:
             logger.exception("Failed to write alert to DB")
