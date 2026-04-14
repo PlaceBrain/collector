@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 import asyncpg
@@ -60,7 +61,7 @@ class ReadingsService:
             ORDER BY key, time ASC
             LIMIT {MAX_ROWS}
         """
-        params: list = [UUID(device_id), time_from, time_to]
+        params: list[Any] = [UUID(device_id), time_from, time_to]
         if has_keys:
             params.append(keys)
 
@@ -99,7 +100,7 @@ class ReadingsService:
             ORDER BY key, bucket ASC
             LIMIT {MAX_ROWS}
         """
-        params: list = [interval, UUID(device_id), time_from, time_to]
+        params: list[Any] = [interval, UUID(device_id), time_from, time_to]
         if has_keys:
             params.append(keys)
 
