@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 import orjson
 from redis.asyncio import Redis
@@ -45,7 +46,7 @@ class ThresholdCache:
     ) -> None:
         redis_key = f"thresholds:{sensor_id}"
         raw = await self._redis.get(redis_key)
-        thresholds: list[dict] = orjson.loads(raw) if raw else []
+        thresholds: list[dict[str, Any]] = orjson.loads(raw) if raw else []
 
         updated = False
         for t in thresholds:
@@ -75,7 +76,7 @@ class ThresholdCache:
         raw = await self._redis.get(redis_key)
         if not raw:
             return
-        thresholds: list[dict] = orjson.loads(raw)
+        thresholds: list[dict[str, Any]] = orjson.loads(raw)
         thresholds = [t for t in thresholds if t["threshold_id"] != threshold_id]
         if thresholds:
             await self._redis.set(redis_key, orjson.dumps(thresholds))
@@ -91,7 +92,7 @@ class ThresholdCache:
             del self._local_cache[cache_key]
 
     def _update_local_cache(
-        self, device_id: str, key: str, sensor_id: str, thresholds: list[dict]
+        self, device_id: str, key: str, sensor_id: str, thresholds: list[dict[str, Any]]
     ) -> None:
         self._local_cache[(device_id, key)] = SensorMapping(
             sensor_id=sensor_id,
