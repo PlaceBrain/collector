@@ -2,34 +2,35 @@
 
 - **Port:** 50054
 - **DB:** telemetry_db (TimescaleDB)
-- Hybrid architecture: MQTT subscriber + gRPC server in a single asyncio event loop
+- **Kafka:** consumer (`telemetry.readings`, `devices.events`)
+- Hybrid architecture: Kafka subscriber + gRPC server in a single asyncio event loop
 - **Does not use SQLAlchemy/UoW/Repository** — raw asyncpg pool
 
 ## Structure
 
 ```
 src/
-├── main.py                          # gRPC server + MQTT loop, background tasks
+├── main.py                          # gRPC server + Kafka broker, background tasks
 ├── core/
-│   └── config.py                    # Pydantic Settings (App, Logging, MQTT, Database, Buffer)
+│   └── config.py                    # Pydantic Settings (App, Logging, Database, Buffer, Kafka)
 ├── dependencies/
 │   ├── config.py                    # Settings (APP scope)
 │   ├── db.py                        # asyncpg.Pool (APP scope)
-│   ├── grpc.py                      # DevicesServiceStub (APP scope)
-│   ├── mqtt.py                      # aiomqtt.Client (APP scope)
+│   ├── kafka.py                     # KafkaBroker (APP scope)
 │   └── services.py                  # Buffer, Writer, ThresholdCache, AlertService, ReadingsService
 ├── handlers/
-│   ├── readings.py                  # gRPC CollectorHandler (GetLatestReadings, GetReadings, DeleteReadings)
-│   ├── telemetry.py                 # MQTT TelemetryHandler (buffer + thresholds)
-│   └── status.py                    # MQTT StatusHandler (device status updates)
+│   └── readings.py                  # gRPC CollectorHandler (GetLatestReadings, GetReadings, DeleteReadings)
 ├── services/
 │   ├── buffer.py                    # TelemetryBuffer (in-memory, async-safe)
 │   ├── writer.py                    # TelemetryWriter (asyncpg COPY)
 │   ├── readings.py                  # ReadingsService (raw + aggregated queries)
-│   ├── threshold_cache.py           # ThresholdCache (refreshes every 5 min from devices)
+│   ├── threshold_cache.py           # ThresholdCache (Redis + local cache, updated via Kafka events)
 │   └── alerts.py                    # AlertService (evaluate + MQTT publish + DB write)
 └── infra/
-    └── db.py                        # Schema creation (readings hypertable, alerts table)
+    ├── db.py                        # Schema creation (readings hypertable, alerts table)
+    └── kafka/
+        ├── consumers.py             # on_telemetry_reading, on_devices_event
+        └── routes.py                # Kafka subscriber registration
 ```
 
 ## Protobuf Imports
@@ -51,7 +52,8 @@ from placebrain_contracts import devices_pb2 as devices_pb
 
 ## Threshold Cache
 
-- Refreshes every 5 min from devices service via gRPC `GetAllThresholds`
+- Updated in real-time via Kafka events (`ThresholdCreated`, `ThresholdUpdated`, `ThresholdDeleted`) from `devices.events` topic
+- Two-tier: Redis (persistent) + local dict (fast lookup per telemetry message)
 - On threshold violation → write to alerts + publish to MQTT `placebrain/{place_id}/alerts`
 
 ## gRPC
@@ -60,8 +62,22 @@ from placebrain_contracts import devices_pb2 as devices_pb
 - `GetReadings(device_id, from, to, interval_seconds, keys)` — raw (interval=0, max 2h) or aggregated (time_bucket_gapfill)
 - `DeleteReadings(device_ids)` — cascading deletion of alerts + readings
 
-## MQTT
+## Kafka Events (Consumer)
 
-- Username `collector`, password `collector` (hardcoded in devices service as trusted)
-- Subscription: `placebrain/+/devices/+/telemetry`, `placebrain/+/devices/+/status`
-- Depends on: postgres, MQTT broker, devices service (gRPC)
+**From `telemetry.readings`** (group: `collector-service`):
+- Telemetry messages forwarded from EMQX Kafka bridge (topic, payload, timestamp)
+
+**From `devices.events`** (group: `collector-service`):
+
+| Event | Action |
+|-------|--------|
+| `ThresholdCreated` / `ThresholdUpdated` | Update threshold cache |
+| `ThresholdDeleted` | Remove from threshold cache |
+| `DevicesBulkDeleted` | Delete readings + cache for multiple devices |
+| `DeviceDeleted` | Delete readings + cache for single device |
+
+**Note:** `ReadingsService` is created once in `register_subscribers()` and reused across messages — not instantiated per message.
+
+## Dependencies
+
+- postgres, Kafka, Redis, EMQX (for alerts publishing)
