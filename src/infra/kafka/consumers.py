@@ -4,12 +4,30 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
+from placebrain_contracts.events import (
+    BaseEvent,
+    DeviceDeleted,
+    DevicesBulkDeleted,
+    ThresholdCreated,
+    ThresholdDeleted,
+    ThresholdUpdated,
+)
+from pydantic import ValidationError
+
 from src.services.alerts import AlertService
 from src.services.buffer import TelemetryBuffer
 from src.services.readings import ReadingsService
 from src.services.threshold_cache import ThresholdCache
 
 logger = logging.getLogger(__name__)
+
+DEVICES_EVENT_MAP: dict[str, type[BaseEvent]] = {
+    "threshold.created": ThresholdCreated,
+    "threshold.updated": ThresholdUpdated,
+    "threshold.deleted": ThresholdDeleted,
+    "devices.bulk_deleted": DevicesBulkDeleted,
+    "device.deleted": DeviceDeleted,
+}
 
 
 async def on_telemetry_reading(
@@ -87,29 +105,39 @@ async def on_devices_event(
 ) -> None:
     """Handle device domain events (threshold changes, bulk deletes)."""
     event_type = data.get("event_type")
+    model_cls = DEVICES_EVENT_MAP.get(event_type)  # type: ignore[arg-type]
+    if not model_cls:
+        logger.warning("Unknown devices event type: %s", event_type)
+        return
 
-    if event_type == "threshold.created" or event_type == "threshold.updated":
+    try:
+        event = model_cls.model_validate(data)
+    except ValidationError:
+        logger.exception("Invalid devices event payload: %s", event_type)
+        return
+
+    if isinstance(event, ThresholdCreated | ThresholdUpdated):
         await cache.set_threshold(
-            sensor_id=data["sensor_id"],
-            threshold_id=data["threshold_id"],
-            threshold_type=data["threshold_type"],
-            value=data["value"],
-            severity=data["severity"],
+            sensor_id=str(event.sensor_id),
+            threshold_id=str(event.threshold_id),
+            threshold_type=event.threshold_type,
+            value=event.value,
+            severity=event.severity,
         )
-        logger.info("Threshold cache updated: sensor=%s", data["sensor_id"])
+        logger.info("Threshold cache updated: sensor=%s", event.sensor_id)
 
-    elif event_type == "threshold.deleted":
-        await cache.remove_threshold(data["sensor_id"], data["threshold_id"])
-        logger.info("Threshold removed from cache: %s", data["threshold_id"])
+    elif isinstance(event, ThresholdDeleted):
+        await cache.remove_threshold(str(event.sensor_id), str(event.threshold_id))
+        logger.info("Threshold removed from cache: %s", event.threshold_id)
 
-    elif event_type == "devices.bulk_deleted":
-        device_ids = data["device_ids"]
+    elif isinstance(event, DevicesBulkDeleted):
+        device_ids = [str(d) for d in event.device_ids]
         await readings_service.delete_readings(device_ids)
         await cache.delete_readings_for_devices(device_ids)
         logger.info("Deleted readings for %d devices", len(device_ids))
 
-    elif event_type == "device.deleted":
-        device_id = data["device_id"]
+    elif isinstance(event, DeviceDeleted):
+        device_id = str(event.device_id)
         await readings_service.delete_readings([device_id])
         await cache.delete_readings_for_devices([device_id])
-        logger.info("Deleted readings for device %s", device_id)
+        logger.info("Deleted readings for device %s", event.device_id)

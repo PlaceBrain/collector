@@ -20,11 +20,18 @@ def register_subscribers(
     alert_service: AlertService,
     pool: asyncpg.Pool,
 ) -> None:
+    readings_service = ReadingsService(pool)
+
     @broker.subscriber("telemetry.readings", group_id="collector-service", no_ack=True)
     async def handle_telemetry(msg: dict[str, Any]) -> None:
-        await on_telemetry_reading(msg, buffer, cache, alert_service)
+        try:
+            await on_telemetry_reading(msg, buffer, cache, alert_service)
+        except Exception:
+            logger.exception("Failed to handle telemetry reading")
 
     @broker.subscriber("devices.events", group_id="collector-service", no_ack=True)
     async def handle_devices_event(msg: dict[str, Any]) -> None:
-        readings_service = ReadingsService(pool)
-        await on_devices_event(msg, cache, readings_service)
+        try:
+            await on_devices_event(msg, cache, readings_service)
+        except Exception:
+            logger.exception("Failed to handle devices event: %s", msg.get("event_type"))
