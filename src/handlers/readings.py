@@ -34,21 +34,6 @@ class CollectorHandler(CollectorServiceServicer):
         return collector_pb.GetLatestReadingsResponse(readings=proto_readings)
 
     @inject
-    async def DeleteReadings(  # type: ignore[override]
-        self,
-        request: collector_pb.DeleteReadingsRequest,
-        context: grpc.aio.ServicerContext,
-        readings_service: FromDishka[ReadingsService],
-    ) -> collector_pb.DeleteReadingsResponse:
-        logger.info("DeleteReadings called for %d devices", len(request.device_ids))
-        try:
-            await readings_service.delete_readings(list(request.device_ids))
-            return collector_pb.DeleteReadingsResponse(success=True)
-        except ValueError as e:
-            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(e))
-            raise
-
-    @inject
     async def GetReadings(  # type: ignore[override]
         self,
         request: collector_pb.GetReadingsRequest,
