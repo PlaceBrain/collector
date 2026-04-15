@@ -1,10 +1,8 @@
-import asyncio
 import logging
 from dataclasses import dataclass
 
-import grpc
-from placebrain_contracts import devices_pb2 as devices_pb
-from placebrain_contracts.devices_pb2_grpc import DevicesServiceStub
+import orjson
+from redis.asyncio import Redis
 
 logger = logging.getLogger(__name__)
 
@@ -27,48 +25,87 @@ class SensorMapping:
     thresholds: list[ThresholdInfo]
 
 
-_THRESHOLD_TYPE_MAP = {1: "min", 2: "max"}
-_SEVERITY_MAP = {1: "warning", 2: "critical"}
-
-
 class ThresholdCache:
-    def __init__(self, devices_stub: DevicesServiceStub) -> None:
-        self._stub = devices_stub
-        self._sensor_map: dict[tuple[str, str], SensorMapping] = {}
-        self._refresh_interval = 300  # 5 minutes
+    def __init__(self, redis: Redis) -> None:
+        self._redis = redis
+        self._local_cache: dict[tuple[str, str], SensorMapping] = {}
 
     def lookup(self, device_id: str, key: str) -> SensorMapping | None:
-        return self._sensor_map.get((device_id, key))
+        return self._local_cache.get((device_id, key))
 
-    async def refresh(self) -> None:
-        try:
-            response = await self._stub.GetAllThresholds(devices_pb.GetAllThresholdsRequest())
-            new_map: dict[tuple[str, str], SensorMapping] = {}
-            for sensor in response.sensors:
-                thresholds = [
-                    ThresholdInfo(
-                        threshold_id=t.threshold_id,
-                        sensor_id=t.sensor_id,
-                        threshold_type=_THRESHOLD_TYPE_MAP.get(t.type, "max"),
-                        value=t.value,
-                        severity=_SEVERITY_MAP.get(t.severity, "warning"),
-                    )
-                    for t in sensor.thresholds
-                ]
-                mapping = SensorMapping(
-                    sensor_id=sensor.sensor_id,
-                    device_id=sensor.device_id,
-                    place_id=sensor.place_id,
-                    key=sensor.key,
-                    thresholds=thresholds,
+    async def set_threshold(
+        self,
+        sensor_id: str,
+        threshold_id: str,
+        threshold_type: str,
+        value: float,
+        severity: str,
+        device_id: str = "",
+        key: str = "",
+    ) -> None:
+        redis_key = f"thresholds:{sensor_id}"
+        raw = await self._redis.get(redis_key)
+        thresholds: list[dict] = orjson.loads(raw) if raw else []
+
+        updated = False
+        for t in thresholds:
+            if t["threshold_id"] == threshold_id:
+                t["threshold_type"] = threshold_type
+                t["value"] = value
+                t["severity"] = severity
+                updated = True
+                break
+        if not updated:
+            thresholds.append(
+                {
+                    "threshold_id": threshold_id,
+                    "sensor_id": sensor_id,
+                    "threshold_type": threshold_type,
+                    "value": value,
+                    "severity": severity,
+                }
+            )
+        await self._redis.set(redis_key, orjson.dumps(thresholds))
+
+        if device_id and key:
+            self._update_local_cache(device_id, key, sensor_id, thresholds)
+
+    async def remove_threshold(self, sensor_id: str, threshold_id: str) -> None:
+        redis_key = f"thresholds:{sensor_id}"
+        raw = await self._redis.get(redis_key)
+        if not raw:
+            return
+        thresholds: list[dict] = orjson.loads(raw)
+        thresholds = [t for t in thresholds if t["threshold_id"] != threshold_id]
+        if thresholds:
+            await self._redis.set(redis_key, orjson.dumps(thresholds))
+        else:
+            await self._redis.delete(redis_key)
+
+    async def delete_readings_for_devices(self, device_ids: list[str]) -> None:
+        """Clean up threshold cache entries for deleted devices."""
+        keys_to_remove = [
+            cache_key for cache_key in self._local_cache if cache_key[0] in device_ids
+        ]
+        for cache_key in keys_to_remove:
+            del self._local_cache[cache_key]
+
+    def _update_local_cache(
+        self, device_id: str, key: str, sensor_id: str, thresholds: list[dict]
+    ) -> None:
+        self._local_cache[(device_id, key)] = SensorMapping(
+            sensor_id=sensor_id,
+            device_id=device_id,
+            place_id="",
+            key=key,
+            thresholds=[
+                ThresholdInfo(
+                    threshold_id=t["threshold_id"],
+                    sensor_id=t["sensor_id"],
+                    threshold_type=t["threshold_type"],
+                    value=t["value"],
+                    severity=t["severity"],
                 )
-                new_map[(sensor.device_id, sensor.key)] = mapping
-            self._sensor_map = new_map
-            logger.info("Threshold cache refreshed: %d sensors", len(new_map))
-        except grpc.aio.AioRpcError:
-            logger.exception("Failed to refresh threshold cache")
-
-    async def run_refresh_loop(self) -> None:
-        while True:
-            await self.refresh()
-            await asyncio.sleep(self._refresh_interval)
+                for t in thresholds
+            ],
+        )

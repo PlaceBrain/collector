@@ -28,6 +28,14 @@ class AppConfig(BaseSettings):
     port: int = 50054
 
 
+class KafkaConfig(BaseSettings):
+    url: str = "placebrain-kafka:19092"
+
+
+class RedisConfig(BaseSettings):
+    url: str = "redis://placebrain-redis:6379/0"
+
+
 class Settings(BaseSettings):
     model_config = {"env_nested_delimiter": "__", "env_file": ".env"}
 
@@ -36,4 +44,5 @@ class Settings(BaseSettings):
     mqtt: MqttConfig = MqttConfig()
     database: DatabaseConfig = DatabaseConfig()
     buffer: BufferConfig = BufferConfig()
-    devices_service_url: str = "placebrain-devices-service:50053"
+    kafka: KafkaConfig = KafkaConfig()
+    redis: RedisConfig = RedisConfig()

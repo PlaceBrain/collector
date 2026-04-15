@@ -1,6 +1,6 @@
 import asyncpg
 from dishka import Provider, Scope, provide
-from placebrain_contracts.devices_pb2_grpc import DevicesServiceStub
+from redis.asyncio import Redis
 
 from src.core.config import Settings
 from src.services.alerts import AlertService
@@ -20,8 +20,8 @@ class ServicesProvider(Provider):
         return TelemetryWriter(pool)
 
     @provide(scope=Scope.APP)
-    def provide_threshold_cache(self, stub: DevicesServiceStub) -> ThresholdCache:
-        return ThresholdCache(stub)
+    def provide_threshold_cache(self, redis: Redis) -> ThresholdCache:
+        return ThresholdCache(redis)
 
     @provide(scope=Scope.APP)
     def provide_alert_service(self, pool: asyncpg.Pool) -> AlertService:
