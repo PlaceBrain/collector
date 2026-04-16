@@ -60,6 +60,8 @@ async def on_threshold_created(
         threshold_type=event.threshold_type,
         value=event.value,
         severity=event.severity,
+        device_id=str(event.device_id),
+        key=event.key,
     )
     logger.info("Threshold cache updated: sensor=%s", event.sensor_id)
 
@@ -69,7 +71,12 @@ async def on_threshold_deleted(
     event: ThresholdDeleted,
     cache: FromDishka[ThresholdCache],
 ) -> None:
-    await cache.remove_threshold(str(event.sensor_id), str(event.threshold_id))
+    await cache.remove_threshold(
+        sensor_id=str(event.sensor_id),
+        threshold_id=str(event.threshold_id),
+        device_id=str(event.device_id),
+        key=event.key,
+    )
     logger.info("Threshold removed from cache: %s", event.threshold_id)
 
 

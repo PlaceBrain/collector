@@ -71,17 +71,27 @@ class ThresholdCache:
         if device_id and key:
             self._update_local_cache(device_id, key, sensor_id, thresholds)
 
-    async def remove_threshold(self, sensor_id: str, threshold_id: str) -> None:
+    async def remove_threshold(
+        self,
+        sensor_id: str,
+        threshold_id: str,
+        device_id: str = "",
+        key: str = "",
+    ) -> None:
         redis_key = f"thresholds:{sensor_id}"
         raw = await self._redis.get(redis_key)
-        if not raw:
-            return
-        thresholds: list[dict[str, Any]] = orjson.loads(raw)
+        thresholds: list[dict[str, Any]] = orjson.loads(raw) if raw else []
         thresholds = [t for t in thresholds if t["threshold_id"] != threshold_id]
         if thresholds:
             await self._redis.set(redis_key, orjson.dumps(thresholds))
         else:
             await self._redis.delete(redis_key)
+
+        if device_id and key:
+            if thresholds:
+                self._update_local_cache(device_id, key, sensor_id, thresholds)
+            else:
+                self._local_cache.pop((device_id, key), None)
 
     async def delete_readings_for_devices(self, device_ids: list[str]) -> None:
         """Clean up threshold cache entries for deleted devices."""
