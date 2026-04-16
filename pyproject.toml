@@ -11,7 +11,7 @@ dependencies = [
     "faststream[kafka]>=0.5.0",
     "grpcio>=1.76.0",
     "orjson>=3.10.0",
-    "placebrain-contracts>=0.17.0",
+    "placebrain-contracts>=0.18.0",
     "pydantic-settings>=2.12.0",
     "redis[hiredis]>=6.0.0",
 ]
