@@ -1,14 +1,33 @@
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 import aiomqtt
 import asyncpg
 
+from src.services.alerts_query import AlertRow
 from src.services.threshold_cache import SensorMapping, ThresholdInfo
 
 logger = logging.getLogger(__name__)
+
+
+def _alert_payload(row: AlertRow, event_type: str) -> dict[str, object]:
+    return {
+        "id": row.id,
+        "event_type": event_type,
+        "sensor_id": row.sensor_id,
+        "threshold_id": row.threshold_id,
+        "device_id": row.device_id,
+        "place_id": row.place_id,
+        "key": row.key,
+        "value": row.value,
+        "threshold_value": row.threshold_value,
+        "threshold_type": row.threshold_type,
+        "severity": row.severity,
+        "created_at": row.created_at.isoformat(),
+        "resolved_at": row.resolved_at.isoformat() if row.resolved_at else None,
+    }
 
 
 class AlertService:
@@ -43,13 +62,13 @@ class AlertService:
     ) -> None:
         try:
             async with self._pool.acquire() as conn:
-                row = await conn.fetchrow(
+                inserted = await conn.fetchrow(
                     """
                     INSERT INTO alerts (
                         sensor_id, threshold_id, device_id, place_id,
                         key, value, threshold_value, threshold_type, severity
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                    RETURNING id
+                    RETURNING id, created_at
                     """,
                     UUID(mapping.sensor_id),
                     UUID(threshold.threshold_id),
@@ -65,70 +84,40 @@ class AlertService:
             logger.exception("Failed to write alert to DB")
             return
 
-        alert_id = str(row["id"])
-        alert_payload = {
-            "id": alert_id,
-            "event_type": "created",
-            "sensor_id": mapping.sensor_id,
-            "device_id": mapping.device_id,
-            "place_id": place_id,
-            "key": mapping.key,
-            "value": value,
-            "threshold_id": threshold.threshold_id,
-            "threshold_type": threshold.threshold_type,
-            "threshold_value": threshold.value,
-            "severity": threshold.severity,
-            "timestamp": timestamp.isoformat(),
-        }
+        row = AlertRow(
+            id=str(inserted["id"]),
+            sensor_id=mapping.sensor_id,
+            threshold_id=threshold.threshold_id,
+            device_id=mapping.device_id,
+            place_id=place_id,
+            key=mapping.key,
+            value=value,
+            threshold_value=threshold.value,
+            threshold_type=threshold.threshold_type,
+            severity=threshold.severity,
+            status="active",
+            created_at=inserted["created_at"] or timestamp.astimezone(UTC),
+            resolved_at=None,
+        )
+        await self._publish(row, "created")
+        logger.warning(
+            "Alert: %s %s=%s exceeds %s threshold %s (severity=%s)",
+            row.key,
+            row.device_id,
+            row.value,
+            row.threshold_type,
+            row.threshold_value,
+            row.severity,
+        )
 
-        topic = f"placebrain/{place_id}/alerts"
-        if self._client:
-            try:
-                await self._client.publish(topic, json.dumps(alert_payload))
-                logger.warning(
-                    "Alert: %s %s=%s exceeds %s threshold %s (severity=%s)",
-                    mapping.key,
-                    mapping.device_id,
-                    value,
-                    threshold.threshold_type,
-                    threshold.value,
-                    threshold.severity,
-                )
-            except aiomqtt.MqttError:
-                logger.exception("Failed to publish alert to MQTT")
+    async def publish_resolved(self, row: AlertRow) -> None:
+        await self._publish(row, "resolved")
 
-    async def publish_resolved(
-        self,
-        *,
-        alert_id: str,
-        sensor_id: str,
-        threshold_id: str,
-        device_id: str,
-        place_id: str,
-        key: str,
-        value: float,
-        threshold_value: float,
-        threshold_type: str,
-        severity: str,
-        resolved_at: datetime | None,
-    ) -> None:
-        payload = {
-            "id": alert_id,
-            "event_type": "resolved",
-            "sensor_id": sensor_id,
-            "device_id": device_id,
-            "place_id": place_id,
-            "key": key,
-            "value": value,
-            "threshold_id": threshold_id,
-            "threshold_type": threshold_type,
-            "threshold_value": threshold_value,
-            "severity": severity,
-            "resolved_at": resolved_at.isoformat() if resolved_at is not None else None,
-        }
-        topic = f"placebrain/{place_id}/alerts"
-        if self._client:
-            try:
-                await self._client.publish(topic, json.dumps(payload))
-            except aiomqtt.MqttError:
-                logger.exception("Failed to publish resolved alert to MQTT")
+    async def _publish(self, row: AlertRow, event_type: str) -> None:
+        if not self._client:
+            return
+        topic = f"placebrain/{row.place_id}/alerts"
+        try:
+            await self._client.publish(topic, json.dumps(_alert_payload(row, event_type)))
+        except aiomqtt.MqttError:
+            logger.exception("Failed to publish %s alert to MQTT", event_type)

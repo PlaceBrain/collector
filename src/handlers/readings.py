@@ -219,17 +219,5 @@ class CollectorHandler(CollectorServiceServicer):
             await context.abort(grpc.StatusCode.NOT_FOUND, "Alert not found")
             raise RuntimeError("unreachable")
 
-        await alert_service.publish_resolved(
-            alert_id=row.id,
-            sensor_id=row.sensor_id,
-            threshold_id=row.threshold_id,
-            device_id=row.device_id,
-            place_id=row.place_id,
-            key=row.key,
-            value=row.value,
-            threshold_value=row.threshold_value,
-            threshold_type=row.threshold_type,
-            severity=row.severity,
-            resolved_at=row.resolved_at,
-        )
+        await alert_service.publish_resolved(row)
         return collector_pb.ResolveAlertResponse(alert=_alert_to_proto(row))
