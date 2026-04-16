@@ -41,11 +41,40 @@ class AlertService:
         timestamp: datetime,
         place_id: str,
     ) -> None:
+        try:
+            async with self._pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    """
+                    INSERT INTO alerts (
+                        sensor_id, threshold_id, device_id, place_id,
+                        key, value, threshold_value, threshold_type, severity
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    RETURNING id
+                    """,
+                    UUID(mapping.sensor_id),
+                    UUID(threshold.threshold_id),
+                    UUID(mapping.device_id),
+                    UUID(place_id),
+                    mapping.key,
+                    value,
+                    threshold.value,
+                    threshold.threshold_type,
+                    threshold.severity,
+                )
+        except asyncpg.PostgresError:
+            logger.exception("Failed to write alert to DB")
+            return
+
+        alert_id = str(row["id"])
         alert_payload = {
+            "id": alert_id,
+            "event_type": "created",
             "sensor_id": mapping.sensor_id,
             "device_id": mapping.device_id,
+            "place_id": place_id,
             "key": mapping.key,
             "value": value,
+            "threshold_id": threshold.threshold_id,
             "threshold_type": threshold.threshold_type,
             "threshold_value": threshold.value,
             "severity": threshold.severity,
@@ -68,24 +97,38 @@ class AlertService:
             except aiomqtt.MqttError:
                 logger.exception("Failed to publish alert to MQTT")
 
-        try:
-            async with self._pool.acquire() as conn:
-                await conn.execute(
-                    """
-                    INSERT INTO alerts (
-                        sensor_id, threshold_id, device_id, place_id,
-                        key, value, threshold_value, threshold_type, severity
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                    """,
-                    UUID(mapping.sensor_id),
-                    UUID(threshold.threshold_id),
-                    UUID(mapping.device_id),
-                    UUID(place_id),
-                    mapping.key,
-                    value,
-                    threshold.value,
-                    threshold.threshold_type,
-                    threshold.severity,
-                )
-        except asyncpg.PostgresError:
-            logger.exception("Failed to write alert to DB")
+    async def publish_resolved(
+        self,
+        *,
+        alert_id: str,
+        sensor_id: str,
+        threshold_id: str,
+        device_id: str,
+        place_id: str,
+        key: str,
+        value: float,
+        threshold_value: float,
+        threshold_type: str,
+        severity: str,
+        resolved_at: datetime | None,
+    ) -> None:
+        payload = {
+            "id": alert_id,
+            "event_type": "resolved",
+            "sensor_id": sensor_id,
+            "device_id": device_id,
+            "place_id": place_id,
+            "key": key,
+            "value": value,
+            "threshold_id": threshold_id,
+            "threshold_type": threshold_type,
+            "threshold_value": threshold_value,
+            "severity": severity,
+            "resolved_at": resolved_at.isoformat() if resolved_at is not None else None,
+        }
+        topic = f"placebrain/{place_id}/alerts"
+        if self._client:
+            try:
+                await self._client.publish(topic, json.dumps(payload))
+            except aiomqtt.MqttError:
+                logger.exception("Failed to publish resolved alert to MQTT")
