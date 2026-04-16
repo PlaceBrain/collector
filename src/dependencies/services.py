@@ -4,6 +4,7 @@ from redis.asyncio import Redis
 
 from src.core.config import Settings
 from src.services.alerts import AlertService
+from src.services.alerts_query import AlertsService
 from src.services.buffer import TelemetryBuffer
 from src.services.readings import ReadingsService
 from src.services.threshold_cache import ThresholdCache
@@ -30,3 +31,7 @@ class ServicesProvider(Provider):
     @provide(scope=Scope.REQUEST)
     def provide_readings_service(self, pool: asyncpg.Pool) -> ReadingsService:
         return ReadingsService(pool)
+
+    @provide(scope=Scope.REQUEST)
+    def provide_alerts_service(self, pool: asyncpg.Pool) -> AlertsService:
+        return AlertsService(pool)

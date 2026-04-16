@@ -1,14 +1,33 @@
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 import aiomqtt
 import asyncpg
 
+from src.services.alerts_query import AlertRow
 from src.services.threshold_cache import SensorMapping, ThresholdInfo
 
 logger = logging.getLogger(__name__)
+
+
+def _alert_payload(row: AlertRow, event_type: str) -> dict[str, object]:
+    return {
+        "id": row.id,
+        "event_type": event_type,
+        "sensor_id": row.sensor_id,
+        "threshold_id": row.threshold_id,
+        "device_id": row.device_id,
+        "place_id": row.place_id,
+        "key": row.key,
+        "value": row.value,
+        "threshold_value": row.threshold_value,
+        "threshold_type": row.threshold_type,
+        "severity": row.severity,
+        "created_at": row.created_at.isoformat(),
+        "resolved_at": row.resolved_at.isoformat() if row.resolved_at else None,
+    }
 
 
 class AlertService:
@@ -41,41 +60,15 @@ class AlertService:
         timestamp: datetime,
         place_id: str,
     ) -> None:
-        alert_payload = {
-            "sensor_id": mapping.sensor_id,
-            "device_id": mapping.device_id,
-            "key": mapping.key,
-            "value": value,
-            "threshold_type": threshold.threshold_type,
-            "threshold_value": threshold.value,
-            "severity": threshold.severity,
-            "timestamp": timestamp.isoformat(),
-        }
-
-        topic = f"placebrain/{place_id}/alerts"
-        if self._client:
-            try:
-                await self._client.publish(topic, json.dumps(alert_payload))
-                logger.warning(
-                    "Alert: %s %s=%s exceeds %s threshold %s (severity=%s)",
-                    mapping.key,
-                    mapping.device_id,
-                    value,
-                    threshold.threshold_type,
-                    threshold.value,
-                    threshold.severity,
-                )
-            except aiomqtt.MqttError:
-                logger.exception("Failed to publish alert to MQTT")
-
         try:
             async with self._pool.acquire() as conn:
-                await conn.execute(
+                inserted = await conn.fetchrow(
                     """
                     INSERT INTO alerts (
                         sensor_id, threshold_id, device_id, place_id,
                         key, value, threshold_value, threshold_type, severity
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    RETURNING id, created_at
                     """,
                     UUID(mapping.sensor_id),
                     UUID(threshold.threshold_id),
@@ -89,3 +82,42 @@ class AlertService:
                 )
         except asyncpg.PostgresError:
             logger.exception("Failed to write alert to DB")
+            return
+
+        row = AlertRow(
+            id=str(inserted["id"]),
+            sensor_id=mapping.sensor_id,
+            threshold_id=threshold.threshold_id,
+            device_id=mapping.device_id,
+            place_id=place_id,
+            key=mapping.key,
+            value=value,
+            threshold_value=threshold.value,
+            threshold_type=threshold.threshold_type,
+            severity=threshold.severity,
+            status="active",
+            created_at=inserted["created_at"] or timestamp.astimezone(UTC),
+            resolved_at=None,
+        )
+        await self._publish(row, "created")
+        logger.warning(
+            "Alert: %s %s=%s exceeds %s threshold %s (severity=%s)",
+            row.key,
+            row.device_id,
+            row.value,
+            row.threshold_type,
+            row.threshold_value,
+            row.severity,
+        )
+
+    async def publish_resolved(self, row: AlertRow) -> None:
+        await self._publish(row, "resolved")
+
+    async def _publish(self, row: AlertRow, event_type: str) -> None:
+        if not self._client:
+            return
+        topic = f"placebrain/{row.place_id}/alerts"
+        try:
+            await self._client.publish(topic, json.dumps(_alert_payload(row, event_type)))
+        except aiomqtt.MqttError:
+            logger.exception("Failed to publish %s alert to MQTT", event_type)

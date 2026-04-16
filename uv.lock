@@ -356,7 +356,7 @@ requires-dist = [
     { name = "faststream", extras = ["kafka"], specifier = ">=0.5.0" },
     { name = "grpcio", specifier = ">=1.76.0" },
     { name = "orjson", specifier = ">=3.10.0" },
-    { name = "placebrain-contracts", specifier = ">=0.16.0" },
+    { name = "placebrain-contracts", specifier = ">=0.17.0" },
     { name = "pydantic-settings", specifier = ">=2.12.0" },
     { name = "redis", extras = ["hiredis"], specifier = ">=6.0.0" },
 ]
@@ -369,16 +369,16 @@ dev = [
 
 [[package]]
 name = "placebrain-contracts"
-version = "0.16.0"
+version = "0.17.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "grpcio" },
     { name = "protobuf" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1a/e5/53bcdc53c111ff7d24dc9f282af9d1d18475b611ed7ff0b5a317a896f93b/placebrain_contracts-0.16.0.tar.gz", hash = "sha256:c720b799fc60bfb5fc8a3536f2c701ab84b213c39280050e64bd30b6f319fb2f", size = 37135, upload-time = "2026-04-16T15:33:10.889Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8b/16/9c1cfe9500e999820a151e9ea2f3cd9169a7d6f210c5d251470717566906/placebrain_contracts-0.17.0.tar.gz", hash = "sha256:98bb5c63a2cd9cb0c4358255a47c6792009a6b3248783e07f91a42a2f0883454", size = 47197, upload-time = "2026-04-16T22:59:10.69Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4d/7b/bbb044fd3bdddf8aa239f393e184e27ef8974c3f569753a6def95485737f/placebrain_contracts-0.16.0-py3-none-any.whl", hash = "sha256:04473700cbe22aab8d466fdffefdb7be1dbc6379665888bb262b2f67d67f48f6", size = 33342, upload-time = "2026-04-16T15:33:11.714Z" },
+    { url = "https://files.pythonhosted.org/packages/a2/68/18642607b5e62c9b2e5ce8e93ab24acc3f65624f58c3f343ad5851b103f2/placebrain_contracts-0.17.0-py3-none-any.whl", hash = "sha256:eee13bdb245c4ee90628bfdc99280241efb9cab2ea39db164226a9bb6fcd3a40", size = 41739, upload-time = "2026-04-16T22:59:11.694Z" },
 ]
 
 [[package]]
