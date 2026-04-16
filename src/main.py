@@ -2,10 +2,10 @@ import asyncio
 import logging
 
 import aiomqtt
-import asyncpg
 import grpc
 from dishka import make_async_container
 from dishka.integrations.grpcio import DishkaAioInterceptor
+from dishka_faststream import setup_dishka as setup_dishka_faststream
 from faststream.kafka import KafkaBroker
 from placebrain_contracts.collector_pb2_grpc import add_CollectorServiceServicer_to_server
 
@@ -17,10 +17,9 @@ from src.dependencies.mqtt import MqttProvider
 from src.dependencies.redis import RedisProvider
 from src.dependencies.services import ServicesProvider
 from src.handlers.readings import CollectorHandler
-from src.infra.kafka.routes import register_subscribers
+from src.infra.broker.routes import router as broker_router
 from src.services.alerts import AlertService
 from src.services.buffer import TelemetryBuffer
-from src.services.threshold_cache import ThresholdCache
 from src.services.writer import TelemetryWriter
 
 logger = logging.getLogger(__name__)
@@ -51,20 +50,19 @@ async def serve() -> None:
     await server.start()
     logger.info("Collector gRPC server started on port %s", settings.app.port)
 
-    # Get dependencies
-    broker = await container.get(KafkaBroker)
+    # Initialize services that need manual setup
     client = await container.get(aiomqtt.Client)
     buffer = await container.get(TelemetryBuffer)
     writer = await container.get(TelemetryWriter)
-    cache = await container.get(ThresholdCache)
     alert_service = await container.get(AlertService)
-    pool = await container.get(asyncpg.Pool)
 
     buffer.set_flush_callback(writer.write_batch)
     alert_service.set_client(client)
 
-    # Kafka — register subscribers, then start
-    register_subscribers(broker, buffer, cache, alert_service, pool)
+    # Kafka — include router, setup DI, then start
+    broker = await container.get(KafkaBroker)
+    broker.include_router(broker_router)
+    setup_dishka_faststream(container, broker=broker, auto_inject=True)
     await broker.start()
     logger.info("Kafka consumers started")
 

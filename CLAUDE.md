@@ -28,9 +28,8 @@ src/
 │   └── alerts.py                    # AlertService (evaluate + MQTT publish + DB write)
 └── infra/
     ├── db.py                        # Schema creation (readings hypertable, alerts table)
-    └── kafka/
-        ├── consumers.py             # on_telemetry_reading, on_devices_event
-        └── routes.py                # Kafka subscriber registration
+    └── broker/
+        └── routes.py                # KafkaRouter with typed subscribers (FromDishka DI)
 ```
 
 ## Protobuf Imports
@@ -64,19 +63,17 @@ from placebrain_contracts import devices_pb2 as devices_pb
 
 ## Kafka Events (Consumer)
 
-**From `telemetry.readings`** (group: `collector-service`):
-- Telemetry messages forwarded from EMQX Kafka bridge (topic, payload, timestamp)
+Subscribers in `src/infra/broker/routes.py` via `KafkaRouter` + `FromDishka[]`. One topic per event type.
 
-**From `devices.events`** (group: `collector-service`):
+**Consumes** (group: `collector-service`):
 
-| Event | Action |
-|-------|--------|
-| `ThresholdCreated` / `ThresholdUpdated` | Update threshold cache |
-| `ThresholdDeleted` | Remove from threshold cache |
-| `DevicesBulkDeleted` | Delete readings + cache for multiple devices |
-| `DeviceDeleted` | Delete readings + cache for single device |
-
-**Note:** `ReadingsService` is created once in `register_subscribers()` and reused across messages — not instantiated per message.
+| Topic | Event | Action |
+|-------|-------|--------|
+| `telemetry.readings` | `EmqxTelemetryMessage` | Buffer telemetry, evaluate thresholds, alert |
+| `devices.threshold.created` | `ThresholdCreated` | Update threshold cache |
+| `devices.threshold.deleted` | `ThresholdDeleted` | Remove from threshold cache |
+| `devices.device.bulk-deleted` | `DevicesBulkDeleted` | Delete readings + cache for multiple devices |
+| `devices.device.deleted` | `DeviceDeleted` | Delete readings + cache for single device |
 
 ## Dependencies
 

@@ -97,6 +97,19 @@ wheels = [
 ]
 
 [[package]]
+name = "dishka-faststream"
+version = "0.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "dishka" },
+    { name = "faststream" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/41/78/7f8611d1175a456925a4fee1c88260c83cbce4fc0c18cb84e41eb99e0010/dishka_faststream-0.6.0.tar.gz", hash = "sha256:8f9c7592b9b2b6c2b140db0c14be892d63cb8a1fdd98f18ee6551db938b91953", size = 99614, upload-time = "2025-11-06T18:25:56.55Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1a/3e/cc7754dab1c30d1c13654a3b7f2b9f705fd8a5371e6a62a8903a43247a29/dishka_faststream-0.6.0-py3-none-any.whl", hash = "sha256:0b8b95e31f2cfab2c592d0e964b9a664ddd37e1c39faff01ea3392a71d4bcb9e", size = 10637, upload-time = "2025-11-06T18:25:55.72Z" },
+]
+
+[[package]]
 name = "fast-depends"
 version = "3.0.8"
 source = { registry = "https://pypi.org/simple" }
@@ -319,6 +332,7 @@ dependencies = [
     { name = "aiomqtt" },
     { name = "asyncpg" },
     { name = "dishka" },
+    { name = "dishka-faststream" },
     { name = "faststream", extra = ["kafka"] },
     { name = "grpcio" },
     { name = "orjson" },
@@ -338,10 +352,11 @@ requires-dist = [
     { name = "aiomqtt", specifier = ">=2.3.0" },
     { name = "asyncpg", specifier = ">=0.31.0" },
     { name = "dishka", specifier = ">=1.7.2" },
+    { name = "dishka-faststream", specifier = ">=0.6.0" },
     { name = "faststream", extras = ["kafka"], specifier = ">=0.5.0" },
     { name = "grpcio", specifier = ">=1.76.0" },
     { name = "orjson", specifier = ">=3.10.0" },
-    { name = "placebrain-contracts", specifier = ">=0.15.0" },
+    { name = "placebrain-contracts", specifier = ">=0.16.0" },
     { name = "pydantic-settings", specifier = ">=2.12.0" },
     { name = "redis", extras = ["hiredis"], specifier = ">=6.0.0" },
 ]
@@ -354,16 +369,16 @@ dev = [
 
 [[package]]
 name = "placebrain-contracts"
-version = "0.15.0"
+version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "grpcio" },
     { name = "protobuf" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e5/68/78ada445d9409c287ed928ce60afa2d95aaf546ac4253e07d361947e46af/placebrain_contracts-0.15.0.tar.gz", hash = "sha256:60807e14646ae5689d7211dfd100c1d9ff8503a4768da77513f37d40272e9b51", size = 36431, upload-time = "2026-04-15T19:57:10.835Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/1a/e5/53bcdc53c111ff7d24dc9f282af9d1d18475b611ed7ff0b5a317a896f93b/placebrain_contracts-0.16.0.tar.gz", hash = "sha256:c720b799fc60bfb5fc8a3536f2c701ab84b213c39280050e64bd30b6f319fb2f", size = 37135, upload-time = "2026-04-16T15:33:10.889Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ba/a1/679df455e07ff22b27bf094060242b627595663fa348e6a37219b176f316/placebrain_contracts-0.15.0-py3-none-any.whl", hash = "sha256:b1eca52cb3008daba68b9a97348f05530504bc3a7d1cfe8c5c4061afd263ae4d", size = 32009, upload-time = "2026-04-15T19:57:11.888Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/7b/bbb044fd3bdddf8aa239f393e184e27ef8974c3f569753a6def95485737f/placebrain_contracts-0.16.0-py3-none-any.whl", hash = "sha256:04473700cbe22aab8d466fdffefdb7be1dbc6379665888bb262b2f67d67f48f6", size = 33342, upload-time = "2026-04-16T15:33:11.714Z" },
 ]
 
 [[package]]
