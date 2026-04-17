@@ -12,7 +12,7 @@ from placebrain_contracts.events import (
     TOPIC_THRESHOLD_DELETED,
     DeviceDeleted,
     DevicesBulkDeleted,
-    EmqxTelemetryMessage,
+    TelemetryReading,
     ThresholdCreated,
     ThresholdDeleted,
 )
@@ -28,25 +28,19 @@ router = KafkaRouter()
 
 @router.subscriber(TOPIC_TELEMETRY_READINGS, group_id="collector-service")
 async def on_telemetry_reading(
-    msg: EmqxTelemetryMessage,
+    msg: TelemetryReading,
     buffer: FromDishka[TelemetryBuffer],
     cache: FromDishka[ThresholdCache],
     alerts: FromDishka[AlertService],
 ) -> None:
-    place_id, device_id_str = msg.extract_ids()
-    try:
-        device_id = UUID(device_id_str)
-    except ValueError:
-        logger.warning("Invalid device_id: %s", device_id_str)
-        return
-
+    device_id = UUID(msg.device_id)
     ts = msg.payload.ts or datetime.now(UTC)
 
     for key, value in msg.payload.values.items():
         await buffer.add(ts, device_id, key, value)
-        mapping = cache.lookup(device_id_str, key)
+        mapping = cache.lookup(msg.device_id, key)
         if mapping:
-            await alerts.evaluate_and_alert(mapping, value, ts, place_id)
+            await alerts.evaluate_and_alert(mapping, value, ts, msg.place_id)
 
 
 @router.subscriber(TOPIC_THRESHOLD_CREATED, group_id="collector-service")
