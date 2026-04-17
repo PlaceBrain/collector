@@ -23,6 +23,7 @@ package = false
 dev = [
     "mypy>=1.19.1",
     "ruff>=0.14.10",
+    "watchfiles>=1.1.1",
 ]
 
 [tool.ruff]
