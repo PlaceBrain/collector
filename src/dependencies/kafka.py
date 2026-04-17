@@ -7,4 +7,7 @@ from src.core.config import Settings
 class KafkaProvider(Provider):
     @provide(scope=Scope.APP)
     def provide_broker(self, settings: Settings) -> KafkaBroker:
-        return KafkaBroker(settings.kafka.url)
+        return KafkaBroker(
+            settings.kafka.url,
+            retry_backoff_ms=1000,
+        )

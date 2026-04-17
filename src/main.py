@@ -42,6 +42,7 @@ async def serve() -> None:
         format=settings.logging.format,
         datefmt=settings.logging.date_format,
     )
+    logging.getLogger("aiokafka").setLevel(logging.WARNING)
 
     # gRPC server (for read endpoints)
     server = grpc.aio.server(interceptors=[DishkaAioInterceptor(container)])
